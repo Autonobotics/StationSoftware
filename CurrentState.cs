@@ -210,7 +210,7 @@ namespace MissionPlanner
                 {
                     if (MainV2.comPort.MAV.param.ContainsKey("RC3_MIN") && MainV2.comPort.MAV.param.ContainsKey("RC3_MAX"))
                     {
-                        return (int)(((ch3out - (float)MainV2.comPort.MAV.param["RC3_MIN"]) / ((float)MainV2.comPort.MAV.param["RC3_MAX"] - (float)MainV2.comPort.MAV.param["RC3_MIN"])) * 100);
+                        return (int)(((ch3out - MainV2.comPort.MAV.param["RC3_MIN"].Value) / (MainV2.comPort.MAV.param["RC3_MAX"].Value - MainV2.comPort.MAV.param["RC3_MIN"].Value)) * 100);
                     }
                     else
                     {
@@ -323,7 +323,7 @@ namespace MissionPlanner
         public int battery_remaining { get { return _battery_remaining; } set { _battery_remaining = value; if (_battery_remaining < 0 || _battery_remaining > 100) _battery_remaining = 0; } }
         private int _battery_remaining;
         [DisplayText("Bat Current (Amps)")]
-        public float current { get { return _current; } set { if (value < 0) return; if (_lastcurrent == DateTime.MinValue) _lastcurrent = datetime; battery_usedmah += (float)((value * 1000.0) * (datetime - _lastcurrent).TotalHours); _current = value; _lastcurrent = datetime; } }
+        public float current { get { return _current; } set { if (_lastcurrent == DateTime.MinValue) _lastcurrent = datetime; battery_usedmah += (float)((value * 1000.0) * (datetime - _lastcurrent).TotalHours); _current = value; _lastcurrent = datetime; } } //current may to be below zero - recuperation in arduplane
         private float _current;
         [DisplayText("Bat Watts")]
         public float watts { get { return battery_voltage * current; } }
@@ -803,6 +803,21 @@ namespace MissionPlanner
                         campointa = status.pointing_a / 100.0f;
                         campointb = status.pointing_b / 100.0f;
                         campointc = status.pointing_c / 100.0f;
+                    }
+
+                    bytearray = MAV.packets[(byte)MAVLink.MAVLINK_MSG_ID.VIBRATION];
+
+                    if (bytearray != null)
+                    {
+                        var vibe = bytearray.ByteArrayToStructure<MAVLink.mavlink_vibration_t>(6);
+
+                        vibeclip0avg = (vibe.clipping_0 - vibeclip0) * 0.1f + vibeclip0avg * 0.9f;
+                        vibeclip0 = vibe.clipping_0;
+                        vibeclip1 = vibe.clipping_1;
+                        vibeclip2 = vibe.clipping_2;
+                        vibex = vibe.vibration_x;
+                        vibey = vibe.vibration_y;
+                        vibez = vibe.vibration_z;
                     }
 
                     bytearray = MAV.packets[(byte)MAVLink.MAVLINK_MSG_ID.AIRSPEED_AUTOCAL];
@@ -1705,5 +1720,19 @@ namespace MissionPlanner
         public float piddesired { get; set; }
 
         public float pidachieved { get; set; }
+
+        public float vibeclip0avg { get; set; }
+
+        public uint vibeclip0 { get; set; }
+
+        public uint vibeclip1 { get; set; }
+
+        public uint vibeclip2 { get; set; }
+
+        public float vibex { get; set; }
+
+        public float vibey { get; set; }
+
+        public float vibez { get; set; }
     }    
 }

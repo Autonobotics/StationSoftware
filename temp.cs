@@ -969,8 +969,6 @@ namespace MissionPlanner
 
             Firmware fw = new Firmware();
 
-            string betafirmwareurl = "https://raw.github.com/diydrones/binary/master/dev/firmware2.xml";
-
             var list = fw.getFWList();
 
             using (XmlTextWriter xmlwriter = new XmlTextWriter(basedir + Path.DirectorySeparatorChar + @"firmware2.xml", Encoding.ASCII))
@@ -1327,7 +1325,7 @@ namespace MissionPlanner
                 {
                     foreach (var file in ofd.FileNames)
                     {
-                        string viewurl = droneshare.doUpload(file, droneshareusername, dronesharepassword, Guid.NewGuid().ToString(), APIConstants.apiKey);
+                        string viewurl = droneshare.doUpload(file, droneshareusername, dronesharepassword, Guid.NewGuid().ToString());
 
                         if (viewurl != "")
                             Process.Start(viewurl);

@@ -11,6 +11,7 @@ using int8_t = System.SByte;
 using System.Runtime.InteropServices;
 using System.ComponentModel;
 using netDxf;
+using System.IO.Ports;
 
 namespace MissionPlanner.Utilities
 {
@@ -52,7 +53,7 @@ namespace MissionPlanner.Utilities
 
         sbf_msg_parser sbf_msg = new sbf_msg_parser();
 
-        Stream port = File.Open(@"C:\Users\hog\Desktop\gps data\asterx-m", FileMode.Open);
+        Stream port = null;// File.Open(@"C:\Users\hog\Desktop\gps data\asterx-m", FileMode.Open);
 
         public AP_GPS_SBF()
         {
@@ -60,19 +61,82 @@ namespace MissionPlanner.Utilities
             last_hdop = 999;
             sbf_state = readstate.PREAMBLE1;
 
+            var sport = new SerialPort("COM8",115200);
+
+            sport.Open();
+
+            port = sport.BaseStream;
+
+            // setcommsettings
+            //string command1 = "scs, COM1, baud115200\n";
+            // setdatainout
+            //string command2 = "sdio, COM1, auto, SBF\n";
+            // copy current config to boot config - wont use
+            //eccf, Current, Boot <CR>
+
+            //setreceiverdynamics
+            //srd, High, UAV
+
+            // setelevationmask
+            //sem, PVT, 5
+
+            // setSBFOutput
+            string command2 = "sso, Stream1, COM1, PVTGeodetic+DOP+ExtEventPVTGeodetic, msec100\n";
+            port.Write(ASCIIEncoding.ASCII.GetBytes(command2), 0, command2.Length);
+
+            System.Threading.Thread.Sleep(70);
+
+            //string command3 = "sso, Stream2, USB1, PVTGeodetic+DOP+ExtEventPVTGeodetic, msec100\n";
+            //port.Write(ASCIIEncoding.ASCII.GetBytes(command3),0,command3.Length);
+
+            //System.Threading.Thread.Sleep(70);
+
+            //command3 = "sso, Stream3, USB2, PVTGeodetic+DOP+ExtEventPVTGeodetic, msec100\n";
+            //port.Write(ASCIIEncoding.ASCII.GetBytes(command3), 0, command3.Length);
+
+            //System.Threading.Thread.Sleep(70);
+
+            string command4 = "srd, High, UAV\n";
+            port.Write(ASCIIEncoding.ASCII.GetBytes(command4), 0, command4.Length);
+
+            System.Threading.Thread.Sleep(70);
+
+            string command5 = "sem, PVT, 5\n";
+            port.Write(ASCIIEncoding.ASCII.GetBytes(command5), 0, command5.Length);
+
+            System.Threading.Thread.Sleep(70);
+
+            // enable sbas "+SBAS"
+            string command6 = "spm, Rover, StandAlone+DGPS+RTK\n";
+            port.Write(ASCIIEncoding.ASCII.GetBytes(command6), 0, command6.Length);
+
+            System.Threading.Thread.Sleep(70);
+            int btr = sport.BytesToRead;
+            byte[] data = new byte[btr];
+            port.Read(data, 0, btr);
+            
+            Console.WriteLine(ASCIIEncoding.ASCII.GetString(data));
+
+            //System.Threading.Thread.Sleep(100);
+
             sbf_msg.data = new byte[1024 * 20];
             read();
         }
 
         public bool read()
         {
+            var st = File.OpenWrite("sept.log");
+
             bool ret = false;
             //port->available()
-            while ((port.Length - port.Position) > 0)
+            //(port.Length - port.Position) > 0
+            while (true)
             {
                 //port->read()
-                uint8_t temp = (byte)port.ReadByte();
-                ret |= parse(temp);
+                var temp = port.ReadByte();
+                ret |= parse((byte)temp);
+
+                st.WriteByte((byte)temp);
             }
 
             return ret;
@@ -94,6 +158,7 @@ namespace MissionPlanner.Utilities
                     }
                     else
                     {
+                        Console.WriteLine("Bad Sync " + temp);
                         sbf_state = readstate.PREAMBLE1;
                     }
                     break;
@@ -122,7 +187,7 @@ namespace MissionPlanner.Utilities
                     sbf_state++;
                     sbf_msg.data = new uint8_t[sbf_msg.length];
 
-                    //Console.WriteLine((sbf_msg.blockid & 4095u )+ " " + sbf_msg.length);
+                    Console.WriteLine((sbf_msg.blockid & 4095u )+ " " + sbf_msg.length);
 
                     if (sbf_msg.length % 4 != 0)
                         sbf_state = readstate.PREAMBLE1;
@@ -223,6 +288,14 @@ namespace MissionPlanner.Utilities
                     }
                 }
             }
+            // ExtEventPVTGeodetic
+            if (blockid == 4038)
+            {
+                var temp = (msg4038)sbf_msg.data.ByteArrayToStructure<msg4038>(0);
+
+
+            }
+            // PVTGeodetic
             if (blockid == 4007) // geo position
             {
                 var temp = (msg4007)sbf_msg.data.ByteArrayToStructure<msg4007>(0);
@@ -282,7 +355,7 @@ namespace MissionPlanner.Utilities
                     case 7:
                         state.status = GPS_Status.GPS_OK_FIX_3D_RTK;
                         break;
-                    case 8:
+                    /*case 8:
                         state.status = GPS_Status.GPS_OK_FIX_3D_DGPS;
                         break;
                     case 9:
@@ -291,6 +364,7 @@ namespace MissionPlanner.Utilities
                     case 10:
                         state.status = GPS_Status.GPS_OK_FIX_3D;
                         break;
+                     */
                 }
 
 
@@ -300,7 +374,7 @@ namespace MissionPlanner.Utilities
             {
                 var temp = (msg4001)sbf_msg.data.ByteArrayToStructure<msg4001>(0);
 
-                Console.WriteLine("dop "+temp.WNc + " " + (temp.TOW * 0.001));
+                Console.WriteLine("dop "+temp.WNc + " " + (temp.TOW * 0.001) + " " + temp.HDOP);
 
                 last_hdop = temp.HDOP;
             }
@@ -399,6 +473,33 @@ namespace MissionPlanner.Utilities
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct msg4007
+        {
+            public uint32_t TOW;
+            public uint16_t WNc;
+            public uint8_t Mode;
+            public uint8_t Error;
+            public double Latitude;
+            public double Longitude;
+            public double Height;
+            public float Undulation;
+            public float Vn;
+            public float Ve;
+            public float Vu;
+            public float COG;
+            public double RxClkBias;
+            public float RxClkDrift;
+            public uint8_t TimeSystem;
+            public uint8_t Datum;
+            public uint8_t NrSV;
+            public uint8_t WACorrInfo;
+            public uint16_t ReferenceID;
+            public uint16_t MeanCorrAge;
+            public uint32_t SignalInfo;
+            public uint8_t AlertFlag;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct msg4038
         {
             public uint32_t TOW;
             public uint16_t WNc;

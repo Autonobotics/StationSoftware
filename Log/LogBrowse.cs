@@ -252,7 +252,7 @@ namespace MissionPlanner.Log
             //CMB_preselect.DisplayMember = "Name";
             CMB_preselect.DataSource = graphs;
 
-            chk_time.Checked = true;
+            //chk_time.Checked = true;
 
             MissionPlanner.Utilities.Tracking.AddPage(this.GetType().ToString(), this.Text);
         }
@@ -888,8 +888,11 @@ namespace MissionPlanner.Log
                         continue;
                     }
 
-                    XDate date = new XDate(item.time);
-                    a = date.XLDate;
+                    if (chk_time.Checked)
+                    {
+                        XDate date = new XDate(item.time);
+                        a = date.XLDate;
+                    }
 
                     string mode = "Err: " + ((DFLog.error_subsystem)int.Parse(item.items[index].ToString())) + "-" + item.items[index2].ToString().Trim();
                     if (top)
@@ -956,8 +959,11 @@ namespace MissionPlanner.Log
                         continue;
                     }
 
-                    XDate date = new XDate(item.time);
-                    a = date.XLDate;
+                    if (chk_time.Checked)
+                    {
+                        XDate date = new XDate(item.time);
+                        a = date.XLDate;
+                    }
 
                     string mode = item.items[index].ToString().Trim();
                     if (top)
@@ -1476,7 +1482,7 @@ namespace MissionPlanner.Log
         private void treeView1_DoubleClick(object sender, EventArgs e)
         {
             // apply a slope and offset to a selected child
-            if (treeView1.SelectedNode.Parent == null)
+            if (treeView1.SelectedNode == null || treeView1.SelectedNode.Parent == null)
             {
                 // only apply scalers to children
                 return;
@@ -1906,12 +1912,16 @@ namespace MissionPlanner.Log
 
         private void chk_time_CheckedChanged(object sender, EventArgs e)
         {
-            chk_time.Enabled = false;
+            chk_time.Enabled = true;
+
+            ModeCache.Clear();
+            ErrorCache.Clear();
+            TimeCache.Clear();
 
             zg1.GraphPane.XAxis.Title.Text = "Time (sec)";
 
             zg1.GraphPane.XAxis.Type = AxisType.Date;
-            zg1.GraphPane.XAxis.Scale.Format = "HH:mm:ss";
+            zg1.GraphPane.XAxis.Scale.Format = "HH:mm:ss.fff";
             zg1.GraphPane.XAxis.Scale.MajorUnit = DateUnit.Minute;
             zg1.GraphPane.XAxis.Scale.MinorUnit = DateUnit.Second;
 
